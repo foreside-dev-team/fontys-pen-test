@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: api-gateway-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_DEFAULT_VHOST}
+    ports:
+      - "5672:5672" # AMQP port (public)
+      # Management UI (15672) only exposed inside Docker network; reachable via SSRF but not from host.
+    volumes:
+      - ./_config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./_config/enabled_plugins:/etc/rabbitmq/enabled_plugins
+
+  api-gateway:
+    build: .
+    ports:
+      - "3001:3001"
+    depends_on:
+      - rabbitmq
+      - postgres
+    environment:
+      - NODE_ENV=DEVELOPMENT
+      - APPLICATION_NAME=${APPLICATION_NAME}
+      - HOST=0.0.0.0
+      - PORT=3001
+      - SUPPORTED_SCOPES=${SUPPORTED_SCOPES}
+      - THROTTLE_TTL=${THROTTLE_TTL}
+      - THROTTLE_LIMIT=${THROTTLE_LIMIT}
+      - RABBITMQ_HOSTS=["rabbitmq"]
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_SECURE=false
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_CRM_SALES_EXCHANGE=${RABBITMQ_CRM_SALES_EXCHANGE}
+      - RABBITMQ_CRM_SALES_ROUTING_KEY=${RABBITMQ_CRM_SALES_ROUTING_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - PASSWORD_SALT=${PASSWORD_SALT}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+
+volumes:
+  pgdata:
